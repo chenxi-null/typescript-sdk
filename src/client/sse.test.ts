@@ -1,9 +1,9 @@
-import { createServer, IncomingMessage, Server, ServerResponse } from "http";
-import { AddressInfo } from "net";
-import { JSONRPCMessage } from "../types.js";
-import { SSEClientTransport } from "./sse.js";
-import { OAuthClientProvider, UnauthorizedError } from "./auth.js";
-import { OAuthTokens } from "../shared/auth.js";
+import {createServer, IncomingMessage, Server, ServerResponse} from "http";
+import {AddressInfo} from "net";
+import {JSONRPCMessage} from "../types.js";
+import {SSEClientTransport} from "./sse.js";
+import {OAuthClientProvider, UnauthorizedError} from "./auth.js";
+import {OAuthTokens} from "../shared/auth.js";
 
 describe("SSEClientTransport", () => {
   let server: Server;
@@ -70,7 +70,8 @@ describe("SSEClientTransport", () => {
       done();
     });
 
-    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {
+    });
   });
 
   afterEach(async () => {
@@ -135,7 +136,7 @@ describe("SSEClientTransport", () => {
         jsonrpc: "2.0",
         id: "test-1",
         method: "test",
-        params: { foo: "bar" },
+        params: {foo: "bar"},
       };
 
       sendServerMessage!(JSON.stringify(testMessage));
@@ -171,7 +172,7 @@ describe("SSEClientTransport", () => {
         jsonrpc: "2.0",
         id: "test-1",
         method: "test",
-        params: { foo: "bar" },
+        params: {foo: "bar"},
       };
 
       await transport.send(testMessage);
@@ -239,7 +240,7 @@ describe("SSEClientTransport", () => {
       const fetchWithAuth = (url: string | URL, init?: RequestInit) => {
         const headers = new Headers(init?.headers);
         headers.set("Authorization", authToken);
-        return fetch(url.toString(), { ...init, headers });
+        return fetch(url.toString(), {...init, headers});
       };
 
       transport = new SSEClientTransport(baseUrl, {
@@ -315,9 +316,13 @@ describe("SSEClientTransport", () => {
 
     beforeEach(() => {
       mockAuthProvider = {
-        get redirectUrl() { return "http://localhost/callback"; },
-        get clientMetadata() { return { redirect_uris: ["http://localhost/callback"] }; },
-        clientInformation: jest.fn(() => ({ client_id: "test-client-id", client_secret: "test-client-secret" })),
+        get redirectUrl() {
+          return "http://localhost/callback";
+        },
+        get clientMetadata() {
+          return {redirect_uris: ["http://localhost/callback"]};
+        },
+        clientInformation: jest.fn(() => ({client_id: "test-client-id", client_secret: "test-client-secret"})),
         tokens: jest.fn(),
         saveTokens: jest.fn(),
         redirectToAuthorization: jest.fn(),
@@ -505,14 +510,16 @@ describe("SSEClientTransport", () => {
         if (req.url === "/token" && req.method === "POST") {
           // Handle token refresh request
           let body = "";
-          req.on("data", chunk => { body += chunk; });
+          req.on("data", chunk => {
+            body += chunk;
+          });
           req.on("end", () => {
             const params = new URLSearchParams(body);
             if (params.get("grant_type") === "refresh_token" &&
               params.get("refresh_token")?.includes("refresh-token") &&
               params.get("client_id") === "test-client-id" &&
               params.get("client_secret") === "test-client-secret") {
-              res.writeHead(200, { "Content-Type": "application/json" });
+              res.writeHead(200, {"Content-Type": "application/json"});
               res.end(JSON.stringify({
                 access_token: "new-token",
                 token_type: "Bearer",
@@ -563,14 +570,42 @@ describe("SSEClientTransport", () => {
       transport = new SSEClientTransport(baseUrl, {
         authProvider: mockAuthProvider,
         eventSourceInit: {
-          fetch: (url, init) => {
-            return fetch(url, { ...init, headers: {
+
+          // If we don't set the `Authorization` header manually,
+          //  the test case will fail because of the lack of the `Authorization` header
+          //
+          // fetch: (url, init) => {
+          //   return fetch(url, { ...init, headers: {
+          //     ...init?.headers,
+          //     'X-Custom-Header': 'custom-value'
+          //   } });
+          // }
+
+          // Set the `Authorization` header manually via an `authProvider`
+          fetch: async (url, init) => {
+            const headers: Record<string, string> = {
               ...init?.headers,
               'X-Custom-Header': 'custom-value'
-            } });
+            }
+
+            // Get tokens from authProvider to make sure using the latest tokens
+            if (mockAuthProvider && typeof mockAuthProvider.tokens === 'function') {
+              try {
+                const tokens = await mockAuthProvider.tokens()
+                if (tokens && tokens.access_token) {
+                  headers['Authorization'] = `Bearer ${tokens.access_token}`
+                }
+              } catch (error) {
+                console.error('Failed to fetch tokens:', error)
+              }
+            }
+
+            return fetch(url, {...init, headers})
           }
+
         },
       });
+
 
       await transport.start();
 
@@ -608,14 +643,16 @@ describe("SSEClientTransport", () => {
         if (req.url === "/token" && req.method === "POST") {
           // Handle token refresh request
           let body = "";
-          req.on("data", chunk => { body += chunk; });
+          req.on("data", chunk => {
+            body += chunk;
+          });
           req.on("end", () => {
             const params = new URLSearchParams(body);
             if (params.get("grant_type") === "refresh_token" &&
               params.get("refresh_token") === "refresh-token" &&
               params.get("client_id") === "test-client-id" &&
               params.get("client_secret") === "test-client-secret") {
-              res.writeHead(200, { "Content-Type": "application/json" });
+              res.writeHead(200, {"Content-Type": "application/json"});
               res.end(JSON.stringify({
                 access_token: "new-token",
                 token_type: "Bearer",
